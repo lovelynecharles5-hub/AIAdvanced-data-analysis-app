@@ -70,8 +70,8 @@ st.markdown("<p style='text-align:center; color:gray;'>A modern web app for data
 # ==============================
 # Tabs
 # ==============================
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["📂 Upload", "📈 Analysis", "🔮 Smart Insights", "💬 AI Assistant", "📤 Export"]
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["📂 Upload", "📈 Analysis", "🔮 Smart Insights", "📤 Export"]
 )
 
 # ==============================
@@ -98,7 +98,7 @@ with tab2:
 
         analysis_type = st.selectbox(
             "Select Analysis Type",
-            ["Basic EDA", "Visualization", "Statistical Tests", "Regression Models"]
+            ["Basic EDA", "Visualization", "Regression Models", "Statistical Tests"]
         )
 
         # BASIC EDA
@@ -132,6 +132,8 @@ with tab2:
                 fig, ax = plt.subplots()
                 df[col].hist(bins=20, ax=ax)
                 ax.set_title(f"Histogram of {col}")
+                ax.set_xlabel(col)
+                ax.set_ylabel("Frequency")
                 st.pyplot(fig)
 
             elif viz_option == "Scatterplot":
@@ -199,11 +201,6 @@ with tab2:
                 else:
                     st.warning("No numeric columns available for heatmap.")
 
-        # STATISTICAL TESTS
-        elif analysis_type == "Statistical Tests":
-            st.subheader("🧪 Statistical Tests")
-            st.info("All common statistical tests are available here (T-test, ANOVA, Chi-Square, Correlation, etc.).")
-
         # REGRESSION MODELS
         elif analysis_type == "Regression Models":
             st.subheader("📉 Regression Models")
@@ -218,6 +215,51 @@ with tab2:
                         st.write(model.summary())
             elif model_type == "Logistic Regression":
                 st.info("Logistic regression setup will go here.")
+
+        # STATISTICAL TESTS
+        elif analysis_type == "Statistical Tests":
+            st.subheader("🔬 Statistical Tests")
+
+            test_type = st.selectbox(
+                "Select Test",
+                ["T-test", "ANOVA", "Chi-Square", "Correlation"]
+            )
+
+            if test_type == "T-test":
+                num_col = st.selectbox("Numeric Column", df.select_dtypes(include=["float64", "int64"]).columns)
+                group_col = st.selectbox("Grouping Column", df.columns)
+                if st.button("Run T-test"):
+                    groups = df[group_col].dropna().unique()
+                    if len(groups) == 2:
+                        g1 = df[df[group_col] == groups[0]][num_col]
+                        g2 = df[df[group_col] == groups[1]][num_col]
+                        t, p = stats.ttest_ind(g1, g2)
+                        st.write(f"T-test results: t = {t:.3f}, p = {p:.3f}")
+                    else:
+                        st.error("Grouping column must have exactly 2 unique values.")
+
+            elif test_type == "ANOVA":
+                anova_col = st.selectbox("Numeric Column", df.select_dtypes(include=["float64", "int64"]).columns, key="anova")
+                group_col = st.selectbox("Grouping Column", df.columns, key="anova_group")
+                if st.button("Run ANOVA"):
+                    groups = [group[anova_col].dropna() for name, group in df.groupby(group_col)]
+                    f, p = stats.f_oneway(*groups)
+                    st.write(f"ANOVA results: F = {f:.3f}, p = {p:.3f}")
+
+            elif test_type == "Chi-Square":
+                col1 = st.selectbox("Column 1 (categorical)", df.columns, key="chi1")
+                col2 = st.selectbox("Column 2 (categorical)", df.columns, key="chi2")
+                if st.button("Run Chi-Square Test"):
+                    table = pd.crosstab(df[col1], df[col2])
+                    chi2, p, dof, expected = stats.chi2_contingency(table)
+                    st.write(f"Chi-square results: χ² = {chi2:.3f}, p = {p:.3f}")
+
+            elif test_type == "Correlation":
+                col_x = st.selectbox("Column X (numeric)", df.select_dtypes(include=["float64", "int64"]).columns, key="corrx")
+                col_y = st.selectbox("Column Y (numeric)", df.select_dtypes(include=["float64", "int64"]).columns, key="corry")
+                if st.button("Run Correlation"):
+                    pearson_corr, p = stats.pearsonr(df[col_x], df[col_y])
+                    st.write(f"Pearson correlation: r = {pearson_corr:.3f}, p = {p:.3f}")
 
 # ==============================
 # Smart Insights Tab
@@ -257,16 +299,9 @@ with tab3:
             st.write(rec)
 
 # ==============================
-# AI Assistant Tab (Placeholder)
-# ==============================
-with tab4:
-    st.header("💬 AI Assistant")
-    st.info("🤖 You can connect OpenAI API here later to enable AI support.")
-
-# ==============================
 # Export Tab
 # ==============================
-with tab5:
+with tab4:
     st.header("📤 Export Data & Reports")
     if "df" not in st.session_state:
         st.warning("⚠️ Please upload a dataset first.")
