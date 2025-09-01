@@ -1,188 +1,295 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import streamlit.components.v1 as components
+import seaborn as sns
+from scipy import stats
+import statsmodels.formula.api as smf
+from io import BytesIO
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 
-from analysis_python import (
-    load_dataframe, basic_eda, t_test_numeric_by_group, ols_regression,
-    logistic_regression, plot_histogram, plot_scatter, correlation_matrix,
-    anova_test, chi_square_test, plot_boxplot, plot_line,
-    export_csv, export_excel, export_plot,
-    classification_model, regression_model, clustering_model
+# ==============================
+# Page Config
+# ==============================
+st.set_page_config(
+    page_title="AI Statistical Assistant",
+    page_icon="📊",
+    layout="wide"
 )
 
-st.set_page_config(page_title="🤖 AI Statistical Assistant", layout="wide")
-st.title("🤖 AI Statistical Assistant")
+# ==============================
+# Theme Switch (Dark/Light Mode)
+# ==============================
+theme = st.sidebar.radio("🎨 Choose Theme", ["🌞 Light Mode", "🌙 Dark Mode"])
+
+if theme == "🌙 Dark Mode":
+    st.markdown(
+        """
+        <style>
+        .main {
+            background-color: #0E1117;
+            color: #FAFAFA;
+        }
+        .stTabs [role="tab"] {
+            background-color: #262730;
+            color: #FAFAFA;
+        }
+        h1, h2, h3, h4 {
+            color: #1DB954;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.markdown(
+        """
+        <style>
+        .main {
+            background-color: #F8F9FA;
+            color: #2C3E50;
+        }
+        .stTabs [role="tab"] {
+            background-color: #ffffff;
+            color: #2C3E50;
+        }
+        h1, h2, h3, h4 {
+            color: #2C3E50;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ==============================
-# File Upload
+# Header
 # ==============================
-uploaded_file = st.sidebar.file_uploader("📂 Upload Data (CSV / Excel)", type=["csv", "xls", "xlsx"])
-df = None
-if uploaded_file is not None:
-    df = load_dataframe(uploaded_file.read(), uploaded_file.name)
-    st.success(f"✅ Dataset loaded successfully! Shape: {df.shape}")
+st.markdown("<h1>📊 AI Statistical Assistant</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:gray;'>A modern web app for data analysis & visualization</p>", unsafe_allow_html=True)
 
 # ==============================
-# Menu Options
+# Tabs
 # ==============================
-menu = st.sidebar.radio("📌 Select Analysis Mode", [
-    "📊 Basic EDA",
-    "🧹 Data Cleaning & Editing",
-    "📈 Visualization",
-    "🧪 Statistical Tests",
-    "📉 Regression Models",
-    "🧬 Machine Learning",
-    "📤 Export Data",
-    
-])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["📂 Upload", "📈 Analysis", "🔮 Smart Insights", "💬 AI Assistant", "📤 Export"]
+)
 
 # ==============================
-# Basic EDA
+# Upload Tab
 # ==============================
-if menu == "📊 Basic EDA" and df is not None:
-    st.subheader("Exploratory Data Analysis")
-    res = basic_eda(df)
-    st.write("**Data Preview**", res['sample'])
-    st.write("**Summary Stats**", res['summary'])
-    st.write("**Missing Values**", res['missing'])
-    st.write("**Info**", res['info'])
-
-# ==============================
-# Data Cleaning & Editing
-# ==============================
-elif menu == "🧹 Data Cleaning & Editing" and df is not None:
-    st.subheader("Data Cleaning Options")
-    clean_option = st.radio("Handle Missing Values", [
-        "Do Nothing", "Drop Rows", "Fill with 0", "Fill with Mean", "Fill with Mode"
-    ])
-
-    if clean_option == "Drop Rows":
-        df = df.dropna()
-    elif clean_option == "Fill with 0":
-        df = df.fillna(0)
-    elif clean_option == "Fill with Mean":
-        df = df.fillna(df.mean(numeric_only=True))
-    elif clean_option == "Fill with Mode":
-        for col in df.columns:
-            try:
-                df[col] = df[col].fillna(df[col].mode()[0])
-            except:
-                pass
-
-    st.write("✏️ Edit Data (click cells to change values)")
-    df = st.data_editor(df, num_rows="dynamic")
+with tab1:
+    st.header("📂 Upload Dataset")
+    uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
+    if uploaded_file:
+        st.session_state["df"] = pd.read_csv(uploaded_file)
+        st.success("✅ Dataset uploaded successfully!")
+        st.dataframe(st.session_state["df"].head())
 
 # ==============================
-# Visualization
+# Analysis Tab
 # ==============================
-elif menu == "📈 Visualization" and df is not None:
-    viz_option = st.selectbox("Choose Visualization", [
-        "Histogram", "Scatter Plot", "Correlation Matrix", "Box Plot", "Line Plot"
-    ])
+with tab2:
+    st.header("📈 Data Analysis")
 
-    if viz_option == "Histogram":
-        col = st.selectbox("Column", df.select_dtypes(include='number').columns)
-        fig = plot_histogram(df, col)
-        st.pyplot(fig)
+    if "df" not in st.session_state:
+        st.warning("⚠️ Please upload a dataset first in the Upload tab.")
+    else:
+        df = st.session_state["df"]
 
-    elif viz_option == "Scatter Plot":
-        x = st.selectbox("X-axis", df.columns)
-        y = st.selectbox("Y-axis", df.columns)
-        fig = plot_scatter(df, x, y)
-        st.pyplot(fig)
+        analysis_type = st.selectbox(
+            "Select Analysis Type",
+            ["Basic EDA", "Visualization", "Statistical Tests", "Regression Models"]
+        )
 
-    elif viz_option == "Correlation Matrix":
-        fig, corr = correlation_matrix(df)
-        st.pyplot(fig)
+        # BASIC EDA
+        if analysis_type == "Basic EDA":
+            st.subheader("📊 Exploratory Data Analysis")
+            if st.checkbox("Show Summary Statistics"):
+                st.write(df.describe())
+            if st.checkbox("Show Correlation Matrix"):
+                numeric_df = df.select_dtypes(include=["float64", "int64"])
+                if not numeric_df.empty:
+                    fig, ax = plt.subplots()
+                    sns.heatmap(numeric_df.corr(), annot=True, cmap="coolwarm", ax=ax)
+                    st.pyplot(fig)
+                else:
+                    st.info("No numeric columns found.")
 
-    elif viz_option == "Box Plot":
-        col = st.selectbox("Numeric Column", df.select_dtypes(include='number').columns)
-        group = st.selectbox("Group Column", df.columns)
-        fig = plot_boxplot(df, col, group)
-        st.pyplot(fig)
+        # VISUALIZATION
+        elif analysis_type == "Visualization":
+            st.subheader("📈 Visualizations")
+            viz_option = st.selectbox(
+                "Choose Visualization",
+                [
+                    "Histogram", "Scatterplot", "Boxplot", "Line Chart",
+                    "Bar Chart", "Pie Chart", "Stacked Bar Chart",
+                    "Violin Plot", "Pairplot", "Heatmap"
+                ]
+            )
 
-    elif viz_option == "Line Plot":
-        x = st.selectbox("X-axis", df.columns)
-        y = st.selectbox("Y-axis", df.select_dtypes(include='number').columns)
-        fig = plot_line(df, x, y)
-        st.pyplot(fig)
+            if viz_option == "Histogram":
+                col = st.selectbox("Select Column", df.columns)
+                fig, ax = plt.subplots()
+                df[col].hist(bins=20, ax=ax)
+                ax.set_title(f"Histogram of {col}")
+                st.pyplot(fig)
+
+            elif viz_option == "Scatterplot":
+                x_col = st.selectbox("X-axis", df.columns)
+                y_col = st.selectbox("Y-axis", df.columns)
+                fig, ax = plt.subplots()
+                ax.scatter(df[x_col], df[y_col])
+                ax.set_xlabel(x_col)
+                ax.set_ylabel(y_col)
+                st.pyplot(fig)
+
+            elif viz_option == "Boxplot":
+                col = st.selectbox("Select Column", df.columns, key="box_col")
+                fig, ax = plt.subplots()
+                sns.boxplot(x=df[col], ax=ax)
+                st.pyplot(fig)
+
+            elif viz_option == "Line Chart":
+                col = st.selectbox("Select Column", df.columns, key="line_col")
+                st.line_chart(df[col])
+
+            elif viz_option == "Bar Chart":
+                col = st.selectbox("Select Categorical Column", df.columns, key="bar_col")
+                fig, ax = plt.subplots()
+                df[col].value_counts().plot(kind="bar", ax=ax)
+                ax.set_title(f"Bar Chart of {col}")
+                st.pyplot(fig)
+
+            elif viz_option == "Pie Chart":
+                col = st.selectbox("Select Categorical Column", df.columns, key="pie_col")
+                fig, ax = plt.subplots()
+                df[col].value_counts().plot(kind="pie", autopct="%1.1f%%", ax=ax)
+                ax.set_ylabel("")
+                ax.set_title(f"Pie Chart of {col}")
+                st.pyplot(fig)
+
+            elif viz_option == "Stacked Bar Chart":
+                col1 = st.selectbox("First Categorical Column", df.columns, key="stack1")
+                col2 = st.selectbox("Second Categorical Column", df.columns, key="stack2")
+                crosstab = pd.crosstab(df[col1], df[col2])
+                crosstab.plot(kind="bar", stacked=True)
+                st.pyplot(plt.gcf())
+
+            elif viz_option == "Violin Plot":
+                num_col = st.selectbox("Numeric Column", df.columns, key="violin_num")
+                cat_col = st.selectbox("Categorical Column", df.columns, key="violin_cat")
+                fig, ax = plt.subplots()
+                sns.violinplot(x=df[cat_col], y=df[num_col], ax=ax)
+                st.pyplot(fig)
+
+            elif viz_option == "Pairplot":
+                numeric_df = df.select_dtypes(include=["float64", "int64"])
+                if not numeric_df.empty:
+                    fig = sns.pairplot(numeric_df)
+                    st.pyplot(fig)
+                else:
+                    st.warning("No numeric columns available for pairplot.")
+
+            elif viz_option == "Heatmap":
+                numeric_df = df.select_dtypes(include=["float64", "int64"])
+                if not numeric_df.empty:
+                    fig, ax = plt.subplots()
+                    sns.heatmap(numeric_df.corr(), annot=True, cmap="coolwarm", ax=ax)
+                    st.pyplot(fig)
+                else:
+                    st.warning("No numeric columns available for heatmap.")
+
+        # STATISTICAL TESTS
+        elif analysis_type == "Statistical Tests":
+            st.subheader("🧪 Statistical Tests")
+            st.info("All common statistical tests are available here (T-test, ANOVA, Chi-Square, Correlation, etc.).")
+
+        # REGRESSION MODELS
+        elif analysis_type == "Regression Models":
+            st.subheader("📉 Regression Models")
+            model_type = st.selectbox("Choose Model", ["Linear Regression", "Logistic Regression"])
+            if model_type == "Linear Regression":
+                target = st.selectbox("Select Target (Y)", df.columns)
+                predictors = st.multiselect("Select Predictors (X)", [c for c in df.columns if c != target])
+                if st.button("Run Linear Regression"):
+                    if target and predictors:
+                        formula = f"{target} ~ {' + '.join(predictors)}"
+                        model = smf.ols(formula, data=df).fit()
+                        st.write(model.summary())
+            elif model_type == "Logistic Regression":
+                st.info("Logistic regression setup will go here.")
 
 # ==============================
-# Statistical Tests
+# Smart Insights Tab
 # ==============================
-elif menu == "🧪 Statistical Tests" and df is not None:
-    test_type = st.selectbox("Choose Test", ["T-test", "ANOVA", "Chi-Square"])
-    if test_type == "T-test":
-        numeric_col = st.selectbox("Numeric Column", df.select_dtypes(include='number').columns)
-        group_col = st.selectbox("Grouping Column", df.columns)
-        if st.button("Run T-test"):
-            st.json(t_test_numeric_by_group(df, numeric_col, group_col))
-    elif test_type == "ANOVA":
-        numeric_col = st.selectbox("Numeric Column", df.select_dtypes(include='number').columns)
-        group_col = st.selectbox("Grouping Column", df.columns)
-        if st.button("Run ANOVA"):
-            st.json(anova_test(df, numeric_col, group_col))
-    elif test_type == "Chi-Square":
-        col1 = st.selectbox("Column 1", df.columns)
-        col2 = st.selectbox("Column 2", df.columns)
-        if st.button("Run Chi-Square"):
-            st.json(chi_square_test(df, col1, col2))
+with tab3:
+    st.header("🔮 Smart Insights")
+    if "df" not in st.session_state:
+        st.warning("⚠️ Please upload a dataset first.")
+    else:
+        df = st.session_state["df"]
+        st.subheader("Quick Overview")
+        st.write(f"Dataset has **{df.shape[0]} rows** and **{df.shape[1]} columns**.")
+        st.write("### Columns and Data Types")
+        st.write(df.dtypes)
 
-# ==============================
-# Regression Models
-# ==============================
-elif menu == "📉 Regression Models" and df is not None:
-    reg_type = st.selectbox("Regression Type", ["OLS", "Logistic"])
-    target = st.selectbox("Target (y)", df.columns)
-    features = st.multiselect("Features (X)", [c for c in df.columns if c != target])
-    if st.button("Run Regression"):
-        if reg_type == "OLS":
-            res = ols_regression(df, target, features)
-            st.text(res['summary_text'])
+        st.subheader("Missing Values")
+        missing = df.isnull().sum()
+        if missing.sum() > 0:
+            st.write(missing[missing > 0])
         else:
-            res = logistic_regression(df, target, features)
-            st.text(res['summary_text'])
+            st.success("No missing values 🎉")
+
+        st.subheader("✨ Recommended Analyses")
+        recommendations = []
+        for col in df.columns:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                recommendations.append(f"🔹 `{col}` is numeric → Histogram, Boxplot, Correlation.")
+            elif pd.api.types.is_categorical_dtype(df[col]) or df[col].dtype == object:
+                recommendations.append(f"🔹 `{col}` is categorical → Bar Chart or Chi-Square Test.")
+        numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns
+        cat_cols = df.select_dtypes(include=["object", "category"]).columns
+        if len(numeric_cols) >= 2:
+            recommendations.append("🔹 Multiple numeric columns → Scatterplots, Pairplot, Regression.")
+        if len(cat_cols) >= 1 and len(numeric_cols) >= 1:
+            recommendations.append("🔹 Numeric + categorical → T-test, ANOVA, Grouped Boxplots.")
+        for rec in recommendations:
+            st.write(rec)
 
 # ==============================
-# Machine Learning
+# AI Assistant Tab (Placeholder)
 # ==============================
-elif menu == "🧬 Machine Learning" and df is not None:
-    ml_task = st.selectbox("Choose ML Task", ["Classification", "Regression", "Clustering"])
-
-    if ml_task == "Classification":
-        model_type = st.radio("Choose Model", ["logistic", "random_forest"])
-        target = st.selectbox("Target (y)", df.columns)
-        features = st.multiselect("Features (X)", [c for c in df.columns if c != target])
-        if st.button("Run Classification"):
-            st.json(classification_model(df, target, features, model_type))
-
-    elif ml_task == "Regression":
-        model_type = st.radio("Choose Model", ["linear", "random_forest"])
-        target = st.selectbox("Target (y)", df.columns)
-        features = st.multiselect("Features (X)", [c for c in df.columns if c != target])
-        if st.button("Run Regression"):
-            st.json(regression_model(df, target, features, model_type))
-
-    elif ml_task == "Clustering":
-        features = st.multiselect("Features for Clustering", df.columns)
-        n_clusters = st.slider("Number of Clusters", 2, 10, 3)
-        if st.button("Run Clustering"):
-            res = clustering_model(df, features, n_clusters)
-            st.write("Cluster Centers:", res["centers"])
-            st.pyplot(res["figure"])
+with tab4:
+    st.header("💬 AI Assistant")
+    st.info("🤖 You can connect OpenAI API here later to enable AI support.")
 
 # ==============================
-# Export Data
+# Export Tab
 # ==============================
-elif menu == "📤 Export Data" and df is not None:
-    st.subheader("Download Data / Results")
-    st.download_button("⬇️ Download CSV", export_csv(df), "data.csv", "text/csv")
-    st.download_button("⬇️ Download Excel", export_excel(df), "data.xlsx")
-
-
-    report = sv.analyze(df)
-    report.show_html("report.html")
-    with open("report.html", "r", encoding="utf-8") as f:
-        html = f.read()
-        components.html(html, height=800, scrolling=True)
+with tab5:
+    st.header("📤 Export Data & Reports")
+    if "df" not in st.session_state:
+        st.warning("⚠️ Please upload a dataset first.")
+    else:
+        df = st.session_state["df"]
+        st.download_button(
+            label="💾 Download CSV",
+            data=df.to_csv(index=False),
+            file_name="exported_data.csv",
+            mime="text/csv"
+        )
+        if st.button("Export Summary Report (PDF)"):
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer)
+            styles = getSampleStyleSheet()
+            story = [
+                Paragraph("📊 Data Summary Report", styles["Title"]),
+                Paragraph(df.describe().to_html(), styles["Normal"])
+            ]
+            doc.build(story)
+            st.download_button(
+                label="💾 Download PDF Report",
+                data=buffer.getvalue(),
+                file_name="report.pdf",
+                mime="application/pdf"
+            )
