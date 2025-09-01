@@ -68,6 +68,23 @@ st.markdown("<h1>📊 AI Statistical Assistant</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:gray;'>A modern web app for data analysis & visualization</p>", unsafe_allow_html=True)
 
 # ==============================
+# App Description
+# ==============================
+with st.expander("ℹ️ About this App", expanded=True):
+    st.markdown("""
+    Welcome to **AI Statistical Assistant** 🎉  
+
+    This app helps you:
+    - 📂 Upload your dataset (CSV)  
+    - 📊 Explore data with **EDA** and **Visualizations**  
+    - 🔬 Run **Regression Models** and **Statistical Tests**  
+    - 💡 Get **Smart Insights & Recommendations**  
+    - 📤 Export results as CSV or PDF  
+
+    👉 *To get started: Go to the **Upload tab**, upload your dataset, then explore the **Analysis tab**.*
+    """)
+
+# ==============================
 # Tabs
 # ==============================
 tab1, tab2, tab3, tab4 = st.tabs(
